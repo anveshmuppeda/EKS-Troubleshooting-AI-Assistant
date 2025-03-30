@@ -1,0 +1,182 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM Roles and Policies for Chatbot with Claude 3 Sonnet
+
+Parameters:
+  ClusterName:
+    Type: String
+    Description: Name of the EKS cluster
+    Default: eks-cluster-debug-assistant
+  OpenSearchCollectionArn:
+    Type: String
+    Description: ARN of the OpenSearch Serverless collection
+    Default: arn:aws:aoss:us-east-1:536697256393:collection/26dhumnliu833k1j2fcb
+  OpenSearchCollectionName:
+    Type: String
+    Description: Name of the OpenSearch collection
+    Default: eks-logs
+  Region:
+    Type: String
+    Description: AWS region
+    Default: us-east-1
+  EKSOIDCProviderArn:
+    Type: String
+    Description: EKS cluster OIDC provider ARN
+    Default: https://oidc.eks.us-east-1.amazonaws.com/id/715E4EDEF29BB45031E776877E09E69E
+
+Resources:
+  ChatbotRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ClusterName}-chatbot-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref EKSOIDCProviderArn
+            Action: "sts:AssumeRoleWithWebIdentity"
+            Condition:
+              StringEquals:
+                Fn::Sub:
+                  - "${OIDC_PROVIDER}:sub"
+                  - OIDC_PROVIDER: !Select [1, !Split ["https://", !Ref EKSOIDCProviderArn]]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+        - !Ref ChatbotOpenSearchPolicy
+      Policies:
+        - PolicyName: BedrockAccessPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - !Sub "arn:aws:bedrock:${Region}::foundation-model/amazon.titan-embed-text-v2:0"
+                  - !Sub "arn:aws:bedrock:${Region}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0"
+
+    # ChatbotRole:
+  #   Type: AWS::IAM::Role
+  #   Properties:
+  #     RoleName: !Sub ${ClusterName}-chatbot-role
+  #     AssumeRolePolicyDocument:
+  #       Fn::Sub:
+  #         - '{
+  #             "Version": "2012-10-17",
+  #             "Statement": [
+  #               {
+  #                 "Action": "sts:AssumeRoleWithWebIdentity",
+  #                 "Condition": {
+  #                   "StringEquals": {
+  #                     "${EKSOIDCProviderArn}:aud": "sts.amazonaws.com",
+  #                     "${EKSOIDCProviderArn}:sub": "system:serviceaccount:agentic-chatbot:agentic-chatbot"
+  #                   }
+  #                 },
+  #                 "Effect": "Allow",
+  #                 "Principal": {
+  #                   "Federated": "arn:aws:iam::${AWS::AccountId}:oidc-provider/${EKSOIDCProviderArn}"
+  #                 }
+  #               }
+  #             ]
+  #           }'
+  #     ManagedPolicyArns:
+  #       - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+  #       - !Ref ChatbotOpenSearchPolicy
+  #     Policies:
+  #       - PolicyName: BedrockAccessPolicy
+  #         PolicyDocument:
+  #           Version: '2012-10-17'
+  #           Statement:
+  #             - Effect: Allow
+  #               Action:
+  #                 - bedrock:InvokeModel
+  #                 - bedrock:InvokeModelWithResponseStream
+  #               Resource:
+  #                 - !Sub arn:aws:bedrock:${Region}::foundation-model/amazon.titan-embed-text-v2:0
+  #                 - !Sub arn:aws:bedrock:${Region}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0
+# Resources:
+#   ChatbotRole:
+#     Type: AWS::IAM::Role
+#     Properties:
+#       RoleName: !Sub "${ClusterName}-chatbot-role"
+#       AssumeRolePolicyDocument:
+#         Version: '2012-10-17'
+#         Statement:
+#           - Effect: Allow
+#             Principal:
+#               Federated: !Ref EKSOIDCProviderArn
+#             Action: sts:AssumeRoleWithWebIdentity
+#             Condition:
+#               StringEquals:
+#                 Fn::Sub:
+#                   - "${OIDCProviderUrl}:sub"
+#                   - OIDCProviderUrl: !Ref EKSOIDCProviderArn
+#       ManagedPolicyArns:
+#         - !Ref ChatbotOpenSearchPolicy
+#       Policies:
+#         - PolicyName: BedrockAccessPolicy
+#           PolicyDocument:
+#             Version: '2012-10-17'
+#             Statement:
+#               - Effect: Allow
+#                 Action:
+#                   - bedrock:InvokeModel
+#                   - bedrock:InvokeModelWithResponseStream
+#                 Resource:
+#                   - !Sub "arn:aws:bedrock:${Region}::foundation-model/amazon.titan-embed-text-v2:0"
+#                   - !Sub "arn:aws:bedrock:${Region}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0"
+
+  ChatbotOpenSearchPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${ClusterName}-chatbot-opensearch-policy"
+      Description: Policy for chatbot to access OpenSearch Serverless collection
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - aoss:APIAccessAll
+            Resource:
+              - !Ref OpenSearchCollectionArn
+              - !Sub "${OpenSearchCollectionArn}/*"
+
+  OpenSearchAccessPolicy:
+    Type: AWS::OpenSearchServerless::AccessPolicy
+    Properties:
+      Name: !Sub "${OpenSearchCollectionName}-chatbot-access-policy"
+      Type: data
+      Policy: !Sub |
+        [
+          {
+            "Description": "Access policy for ${OpenSearchCollectionName}",
+            "Rules": [
+              {
+                "ResourceType": "collection",
+                "Resource": ["collection/${OpenSearchCollectionName}"],
+                "Permission": [
+                  "aoss:DescribeCollectionItems"
+                ]
+              },
+              {
+                "ResourceType": "index",
+                "Resource": ["index/${OpenSearchCollectionName}/*"],
+                "Permission": [
+                  "aoss:DescribeIndex",
+                  "aoss:ReadDocument"
+                ]
+              }
+            ],
+            "Principal": ["${ChatbotRole.Arn}"]
+          }
+        ]
+    DependsOn: ChatbotRole
+
+Outputs:
+  ChatbotRoleArn:
+    Value: !GetAtt ChatbotRole.Arn
+    Description: ARN of the Chatbot IAM role
+  OpenSearchAccessPolicyName:
+    Value: !Ref OpenSearchAccessPolicy
+    Description: Name of the OpenSearch access policy
