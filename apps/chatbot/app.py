@@ -14,7 +14,7 @@ def chatbot_interface(user_input, model_choice, index_date):
 
     Parameters:
         user_input (str): The user's input query.
-        model_choice (str): The selected model for generating the response ("Claude Sonnet").
+        model_choice (str): The selected model for generating the response ("Claude Sonnet" or "TO.DO").
         index_date (datetime): The date for which to query the logs, used to form the index name.
 
     Returns:
@@ -65,7 +65,7 @@ def create_interface():
 
                 # Add the model selection combo box
                 model_dropdown = gr.Dropdown(
-                    choices=["Claude Sonnet"],
+                    choices=["Claude Sonnet", "TODO"],
                     value="Claude Sonnet",
                     label="Select Model"
                 )
