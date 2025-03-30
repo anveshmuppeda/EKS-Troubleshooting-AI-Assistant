@@ -109,17 +109,17 @@ resource "aws_ecr_repository" "chatbot_repo" {
 # Trigger new Build & Push if code is changed
 resource "null_resource" "docker_push" {
   triggers = {
-    docker_file = filemd5("${path.module}/../../../apps/chatbot/Dockerfile")
-    app = filemd5("${path.module}/../../../apps/chatbot/app.py")
-    requirements = filemd5("${path.module}/../../../apps/chatbot/requirements.txt")
-    llm_client = filemd5("${path.module}/../../../apps/chatbot/clients/llm_client.py")
-    kubernetes_client = filemd5("${path.module}/../../../apps/chatbot/clients/kubernetes_client.py")
-    opensearch_client = filemd5("${path.module}/../../../apps/chatbot/clients/opensearch_client.py")
-    logger = filemd5("${path.module}/../../../apps/chatbot/utils/logger.py")
+    docker_file = filemd5("${path.module}/../../../../apps/chatbot/Dockerfile")
+    app = filemd5("${path.module}/../../../../apps/chatbot/app.py")
+    requirements = filemd5("${path.module}/../../../../apps/chatbot/requirements.txt")
+    llm_client = filemd5("${path.module}/../../../../apps/chatbot/clients/llm_client.py")
+    kubernetes_client = filemd5("${path.module}/../../../../apps/chatbot/clients/kubernetes_client.py")
+    opensearch_client = filemd5("${path.module}/../../../../apps/chatbot/clients/opensearch_client.py")
+    logger = filemd5("${path.module}/../../../../apps/chatbot/utils/logger.py")
   }
 
   provisioner "local-exec" {
-    working_dir = "${path.module}/../../../apps/chatbot/"
+    working_dir = "${path.module}/../../../../../apps/chatbot/"
     command = <<EOF
       aws ecr get-login-password --region ${var.region} | ${var.container_builder} login --username AWS --password-stdin ${aws_ecr_repository.chatbot_repo.repository_url}
       ${var.container_builder} build --platform=linux/amd64 -t ${aws_ecr_repository.chatbot_repo.repository_url}:latest .
