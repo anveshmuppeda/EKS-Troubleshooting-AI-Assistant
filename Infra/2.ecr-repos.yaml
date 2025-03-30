@@ -1,0 +1,43 @@
+# Author : Anvesh Muppeda  
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS CFT for - ECR repos
+
+# Parameters for ECR Repo Names
+Parameters:
+  LambdaRepoName:
+    Type: String 
+    Default: ingestion-pipeline-lambda
+  
+  ChatbotRepoName:
+    Type: String 
+    Default: agentic-chatbot
+  
+  Region:
+    Type: String
+    Default: us-east-1
+
+Resources:
+  # Lambda ECR Repository
+  LambdaECRRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref LambdaRepoName
+      ImageTagMutability: MUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: false
+  # Chatbot ECR Repository
+  ChatbotRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref ChatbotRepoName
+      ImageTagMutability: MUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: false
+
+# Outputs for VPC, subnets, and EC2 instances
+Outputs:
+  ECRRepositoryURI:
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${Region}.amazonaws.com/${LambdaRepoName}
+  ChatbotRepositoryURI:
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${Region}.amazonaws.com/${ChatbotRepoName}

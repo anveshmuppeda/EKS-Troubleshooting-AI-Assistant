@@ -1,0 +1,178 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EKS Troubleshooting Assistant - Log Ingestion Pipeline
+
+Parameters:
+  Region:
+    Type: String
+    Default: us-east-1
+  CollectionName:
+    Type: String
+    Default: eks-logs
+  LambdaRepoName:
+    Type: String 
+    Default: ingestion-pipeline-lambda
+
+Resources:
+  # OpenSearch Serverless Resources
+  EncryptionPolicy:
+    Type: AWS::OpenSearchServerless::SecurityPolicy
+    Properties:
+      Name: !Sub ${CollectionName}-encryption-policy
+      Type: encryption
+      Policy: !Sub |
+        {
+          "Rules": [
+            {
+              "Resource": ["collection/${CollectionName}"],
+              "ResourceType": "collection"
+            }
+          ],
+          "AWSOwnedKey": true
+        }
+
+  NetworkPolicy:
+    Type: AWS::OpenSearchServerless::SecurityPolicy
+    Properties:
+      Name: !Sub ${CollectionName}-network-policy
+      Type: network
+      Policy: !Sub |
+        [
+          {
+            "Rules": [
+              {
+                "Resource": ["collection/${CollectionName}"],
+                "ResourceType": "collection"
+              }
+            ],
+            "AllowFromPublic": true
+          }
+        ]
+
+  OpenSearchCollection:
+    Type: AWS::OpenSearchServerless::Collection
+    Properties:
+      Name: !Ref CollectionName
+      Type: VECTORSEARCH
+      Description: "EKS troubleshooting logs collection"
+    DependsOn: 
+      - EncryptionPolicy
+      - NetworkPolicy
+
+  OpenSearchAccessPolicy:
+    Type: AWS::OpenSearchServerless::AccessPolicy
+    Properties:
+      Name: !Sub ${CollectionName}-access-policy
+      Type: data
+      Policy: !Sub |
+        [
+          {
+            "Description": "Access policy for ${CollectionName}",
+            "Rules": [
+              {
+                "ResourceType": "collection",
+                "Resource": ["collection/${CollectionName}"],
+                "Permission": [
+                  "aoss:CreateCollectionItems",
+                  "aoss:DeleteCollectionItems",
+                  "aoss:UpdateCollectionItems",
+                  "aoss:DescribeCollectionItems"
+                ]
+              },
+              {
+                "ResourceType": "index",
+                "Resource": ["index/${CollectionName}/*"],
+                "Permission": [
+                  "aoss:CreateIndex",
+                  "aoss:DeleteIndex",
+                  "aoss:UpdateIndex",
+                  "aoss:DescribeIndex",
+                  "aoss:ReadDocument",
+                  "aoss:WriteDocument"
+                ]
+              }
+            ],
+            "Principal": ["${LambdaExecutionRole.Arn}"]
+          }
+        ]
+    DependsOn: OpenSearchCollection
+
+  # Kinesis Stream
+  LogKinesisStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub ${AWS::StackName}-eks-logs
+      StreamModeDetails:
+        StreamMode: ON_DEMAND
+
+  # Lambda Execution Role
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole
+      Policies:
+        - PolicyName: OpenSearchAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - aoss:APIAccessAll
+                Resource: 
+                  - !Sub ${OpenSearchCollection.Arn}
+                  - !Sub ${OpenSearchCollection.Arn}/*
+        - PolicyName: BedrockAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource: 
+                  - !Sub arn:aws:bedrock:${Region}::foundation-model/amazon.titan-embed-text-v2:0
+
+  # Lambda Function
+  LogProcessorLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-processor
+      Role: !GetAtt LambdaExecutionRole.Arn
+      PackageType: Image
+      Code:
+        ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${Region}.amazonaws.com/${LambdaRepoName}:latest
+      Timeout: 300
+      Environment:
+        Variables:
+          OPENSEARCH_ENDPOINT: !GetAtt OpenSearchCollection.CollectionEndpoint
+          EMBEDDING_MODEL: "amazon.titan-embed-text-v2:0"
+          LOG_LEVEL: "INFO"
+      MemorySize: 1024
+    DependsOn:
+      - OpenSearchAccessPolicy
+
+  # Lambda Event Source Mapping
+  KinesisToLambda:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt LogKinesisStream.Arn
+      FunctionName: !Ref LogProcessorLambda
+      StartingPosition: LATEST
+      BatchSize: 100
+      MaximumBatchingWindowInSeconds: 60
+
+Outputs:
+  OpenSearchEndpoint:
+    Value: !GetAtt OpenSearchCollection.CollectionEndpoint
+  KinesisStreamName:
+    Value: !Ref LogKinesisStream
+  LambdaFunctionName:
+    Value: !Ref LogProcessorLambda
