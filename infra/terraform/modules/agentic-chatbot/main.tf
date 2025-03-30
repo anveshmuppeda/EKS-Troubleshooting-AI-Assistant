@@ -119,7 +119,7 @@ resource "null_resource" "docker_push" {
   }
 
   provisioner "local-exec" {
-    working_dir = "${path.module}/../../../../../apps/chatbot/"
+    working_dir = "${path.module}/../../../../apps/chatbot/"
     command = <<EOF
       aws ecr get-login-password --region ${var.region} | ${var.container_builder} login --username AWS --password-stdin ${aws_ecr_repository.chatbot_repo.repository_url}
       ${var.container_builder} build --platform=linux/amd64 -t ${aws_ecr_repository.chatbot_repo.repository_url}:latest .
