@@ -80,12 +80,12 @@ def execute_kubectl_command(command_str):
 
 def generate_response_with_kubectl(prompt_text, model_option="claude"):
     """
-    Generates a response using a model (Claude), executes any kubectl commands found in the response,
+    Generates a response using a model (Claude or TO.DO), executes any kubectl commands found in the response,
     and sends the kubectl results back to the model for further interpretation.
 
     Parameters:
         prompt_text (str): The input prompt for the model.
-        model_option (str): The model option to use ("claude"). Default is "claude".
+        model_option (str): The model option to use ("claude" or "TO.DO"). Default is "claude".
 
     Returns:
         str: The final response from the model, including interpretation of kubectl output.
