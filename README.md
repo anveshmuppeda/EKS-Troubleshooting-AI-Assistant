@@ -3,7 +3,6 @@ EKS-Troubleshooting-AI-Assistant
 
 
 
-
 You can set the environment variable DOCKER_DEFAULT_PLATFORM:
 ```bash
 export DOCKER_DEFAULT_PLATFORM=linux/amd64
