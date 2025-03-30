@@ -392,8 +392,6 @@ module "vpc" {
 
   private_subnet_tags = {
     "kubernetes.io/role/internal-elb" = 1
-    # Tags subnets for Karpenter auto-discovery
-    "karpenter.sh/discovery" = local.name
   }
 
   tags = local.tags
@@ -465,5 +463,5 @@ resource "helm_release" "agentic-chatbot" {
     fullnameOverride: agentic-chatbot
     EOT
   ]
-  depends_on = [module.eks, helm_release.karpenter, module.ingestion_pipeline, module.agentic_chatbot]
+  depends_on = [module.eks, module.ingestion_pipeline, module.agentic_chatbot]
 }
