@@ -1,0 +1,123 @@
+---
+# Source: agentic-chatbot/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agentic-chatbot
+  labels:
+    app.kubernetes.io/name: agentic-chatbot
+    app.kubernetes.io/instance: agentic-chatbot
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::536697256393:role/eks-llm-troubleshooting-chatbot-role
+---
+# Source: agentic-chatbot/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: agentic-chatbot-readonly
+rules:
+- apiGroups: [""]
+  resources:
+    - pods
+    - pods/log
+    - services
+    - namespaces
+    - nodes
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups: ["apps"]
+  resources:
+    - deployments
+    - replicasets
+    - statefulsets
+    - daemonsets
+  verbs:
+    - get
+    - list
+    - watch
+---
+# Source: agentic-chatbot/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: agentic-chatbot-readonly-binding
+subjects:
+- kind: ServiceAccount
+  name: agentic-chatbot
+  namespace: agentic-chatbot
+roleRef:
+  kind: ClusterRole
+  name: agentic-chatbot-readonly
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: agentic-chatbot/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentic-chatbot
+  labels:
+    app.kubernetes.io/name: agentic-chatbot
+    app.kubernetes.io/instance: agentic-chatbot
+spec:
+  type: ClusterIP
+  ports:
+    - port: 7860
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: agentic-chatbot
+    app.kubernetes.io/instance: agentic-chatbot
+---
+# Source: agentic-chatbot/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentic-chatbot
+  labels:
+    app.kubernetes.io/name: agentic-chatbot
+    app.kubernetes.io/instance: agentic-chatbot
+    application: agentic-chatbot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: agentic-chatbot
+      app.kubernetes.io/instance: agentic-chatbot
+      application: agentic-chatbot
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agentic-chatbot
+        app.kubernetes.io/instance: agentic-chatbot
+        application: agentic-chatbot
+    spec:
+      serviceAccountName: agentic-chatbot
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: agentic-chatbot
+          image: "536697256393.dkr.ecr.us-east-1.amazonaws.com/agentic-chatbot:latest"
+          imagePullPolicy: Always
+          env:
+            - name: AWS_DEFAULT_REGION
+              value: us-east-1
+            - name: OPENSEARCH_ENDPOINT
+              value: 72w61pjtjr38vci8atze.us-east-1.aoss.amazonaws.com
+            - name: LOG_LEVEL
+              value: INFO
+          ports:
+            - name: http
+              containerPort: 7860
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+            requests:
+              cpu: 500m
+              memory: 1Gi
+
