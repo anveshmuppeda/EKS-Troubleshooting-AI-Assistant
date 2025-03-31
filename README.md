@@ -126,7 +126,7 @@ cd terraform
 ```
 
 **What Gets Created**:  
-- **EKS Cluster**: 3 nodes for apps + 1 for AI  
+- **EKS Cluster**: With 3 nodes  
 - **OpenSearch**: Vector database for log search  
 - **Lambda**: Converts logs to AI-readable format  
 
@@ -136,6 +136,8 @@ cd terraform
 ```bash
 # Create OOM errors
 ./oom-kill.sh
+```  
+
 Service A: Queries Service B continuously
 
 Service B: Runs stress-ng and exceeds memory limits
