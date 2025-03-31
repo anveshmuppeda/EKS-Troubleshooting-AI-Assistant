@@ -146,8 +146,7 @@ Expected Outcome: Pod crashes with OOMKilled status
 
 ```bash
 interdependent-services   service-b-787d6b5857-6vr2l                                  0/1     CrashLoopBackOff             29 (2m58s ago)   130m
-```
-```
+```  
 
 **Chatbot Interaction:**  
 Prompt: 
