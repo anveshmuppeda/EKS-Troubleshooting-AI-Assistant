@@ -120,9 +120,9 @@ With this setup, engineers can perform **semantic searches** on logs and identif
 ### **1. Deploy Infrastructure**  
 ```bash
 # Clone & Initialize
-git clone https://github.com/your-repo/eks-troubleshooting-assistant
-cd terraform 
-./install.sh
+https://github.com/anveshmuppeda/EKS-Troubleshooting-AI-Assistant
+cd infra/terraform 
+./install.sh 
 ```
 
 **What Gets Created**:  
@@ -221,11 +221,6 @@ if command.split()[1] not in ALLOWED_COMMANDS:
 ```
 
 ### **3. Cost-Effective**  
-Component | Monthly Cost  
-----------|------------  
-AI Processing | $28  
-Log Storage | $412  
-**Total** | **$440** (vs $2k+ enterprise tools)  
 
 ### **Key Benefits:**  
 1. **Accuracy & Speed**  
